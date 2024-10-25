@@ -4,32 +4,43 @@ from PIL import Image
 from pillow_heif import register_heif_opener
 
 class Converter:
-    def __init__(self, source: Path, destination: Path):
+    def __init__(self, source: Path, delete: bool):
         self.source = source
-        self.destination = destination
+        self.delete = delete
         register_heif_opener()
 
+    def check_if_files_exist(self):
+        num_files = len(list(self.source.rglob('*.heic')))
+        if num_files > 10:
+            print(f"Warning: {num_files} files are about to be converted.")
+            input("\tPress Enter to continue...")
+
     def convert(self):
-        for file in self.source.iterdir():
+        self.check_if_files_exist()
+
+        for file in self.source.rglob("*"):
             if file.suffix.lower() == ".heic":
-                save_path = self.destination / file.name
-                png_file = save_path.with_suffix(".png")
+                png_file = file.with_suffix(".png")
                 if png_file.is_file():
-                    file.unlink()
-                    print(f"Removed {file}")
+                    print(f"PNG already exists at: {png_file}")
                 else:
+                    print(f"Converting {file} to {png_file}")
                     image = Image.open(file)
                     image.save(png_file)
-                    print(f"Converted {file} to {png_file}")
+                
+                if self.delete and png_file.is_file():
+                    print(f"Removing {file}")
+                    file.unlink()
+                    
                 
 
 def main():
     parser = argparse.ArgumentParser(description="HEIC to PNG converter")
     parser.add_argument("-p", "--path", type=str, required=True, help="Path to the directory containing HEIC files")
-    parser.add_argument("-d", "--destination", type=str, required=True, help="Path to the directory to save PNG files")
+    parser.add_argument("-d", "--delete", action='store_true', help="Delete HEIC files after converting? (Recommend running after verifying conversion worked)")
     
     args = parser.parse_args()
-    converter = Converter(Path(args.path), Path(args.destination))
+    converter = Converter(Path(args.path), args.delete)
     converter.convert()
 
 if __name__ == "__main__":
